@@ -2,12 +2,19 @@ import streamlit as st
 import pandas as pd
 from io import BytesIO
 
-# Optional plotly import
+# Check if plotly is installed
 try:
     import plotly.express as px
     PLOTLY_AVAILABLE = True
 except ImportError:
     PLOTLY_AVAILABLE = False
+
+# Check if openpyxl is installed for Excel export
+try:
+    import openpyxl
+    OPENPYXL_AVAILABLE = True
+except ImportError:
+    OPENPYXL_AVAILABLE = False
 
 st.set_page_config(page_title="🧹 File Converter & Cleaner", layout="wide")
 
@@ -65,7 +72,7 @@ with tab2:
 
     if files:
         for file in files:
-            ext = file.name.split(".")[-1]
+            ext = file.name.split(".")[-1].lower()
             df = pd.read_csv(file) if ext == "csv" else pd.read_excel(file)
 
             st.subheader(f"📄 Preview: {file.name}")
@@ -73,15 +80,11 @@ with tab2:
 
             if st.checkbox(f"🧼 Fill Missing Values - {file.name}"):
                 df.fillna(df.select_dtypes(include="number").mean(), inplace=True)
-                st.success("✅ Missing values filled!")
                 st.dataframe(df.head())
 
                 selected_columns = st.multiselect(f"🔍 Select Columns - {file.name}", df.columns, default=df.columns)
                 df = df[selected_columns]
                 st.dataframe(df.head())
-                 
-                st.success(f"✅ Plotly installed: {PLOTLY_AVAILABLE}")
-
 
                 if PLOTLY_AVAILABLE and st.checkbox(f"📊 Show Animated Chart - {file.name}") and not df.select_dtypes(include="number").empty:
                     num_df = df.select_dtypes(include="number")
@@ -101,13 +104,11 @@ with tab2:
                         mime = "text/csv"
 
                     elif format_choice == "Excel":
-                        try:
-                            import openpyxl
-                            df.to_excel(output, index=False)
-                            mime = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                        except ImportError:
+                        if not OPENPYXL_AVAILABLE:
                             st.error("❌ Excel export requires 'openpyxl'. Please install it.")
                             continue
+                        df.to_excel(output, index=False)
+                        mime = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
                     else:  # PDF using reportlab
                         from reportlab.platypus import SimpleDocTemplate, Table, TableStyle
